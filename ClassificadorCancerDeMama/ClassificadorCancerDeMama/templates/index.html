@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Classificador de Cancro da Mama - IA</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 20px; background-color: #f4f4f9; }
+        .container { max-width: 1000px; margin: auto; padding: 30px; background-color: white; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+        h1 { text-align: center; color: #CC0066; margin-bottom: 25px; border-bottom: 2px solid #CC0066; padding-bottom: 10px;}
+        p { text-align: center; color: #555; margin-bottom: 20px;}
+        
+        /* Estilo dos Botões de Exemplo */
+        .example-buttons { display: flex; gap: 15px; justify-content: center; margin-bottom: 30px; }
+        .btn-example { padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; color: white; font-weight: bold; font-size: 0.9em; transition: opacity 0.3s; }
+        .btn-maligno { background-color: #D32F2F; } /* Vermelho */
+        .btn-benigno { background-color: #388E3C; } /* Verde */
+        .btn-example:hover { opacity: 0.8; }
+
+        form { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+        .input-group { display: flex; flex-direction: column; }
+        label { font-weight: 600; margin-bottom: 5px; color: #333; font-size: 0.9em; }
+        input[type="number"] { padding: 10px; border: 1px solid #ddd; border-radius: 5px; box-sizing: border-box; }
+        
+        button[type="submit"] { 
+            grid-column: 1 / 4; 
+            padding: 12px; 
+            background-color: #CC0066; 
+            color: white; 
+            border: none; 
+            border-radius: 5px; 
+            cursor: pointer; 
+            margin-top: 30px;
+            font-size: 1.1em; 
+            font-weight: bold;
+            transition: background-color 0.3s;
+        }
+        button[type="submit"]:hover { background-color: #a80055; }
+        
+        .prediction-result {
+            font-size: 1.6em;
+            font-weight: bold;
+            color: white;
+            padding: 20px;
+            text-align: center;
+            border-radius: 8px;
+            margin-top: 40px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+        }
+        .Maligno { background-color: #D32F2F; } 
+        .Benigno { background-color: #388E3C; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Aplicação IA - Classificação de Cancro da Mama</h1>
+        <p>Insira os 30 valores (features) do tumor ou use os exemplos abaixo:</p>
+        
+        <div class="example-buttons">
+            <button type="button" class="btn-example btn-maligno" onclick="fillMalignant()">Preencher Caso Maligno</button>
+            <button type="button" class="btn-example btn-benigno" onclick="fillBenign()">Preencher Caso Benigno</button>
+        </div>
+        <hr>
+
+        <form action="{{ url_for('predict') }}" method="post">
+            {% for name in feature_names %}
+            <div class="input-group">
+                <label for="{{ name }}">{{ name.replace('_', ' ').title() }}</label>
+                <input type="number" id="{{ name }}" name="{{ name }}" step="any" required placeholder="0.00">
+            </div>
+            {% endfor %}
+
+            <button type="submit">CLASSIFICAR DIAGNÓSTICO</button>
+        </form>
+
+        {% if prediction_text %}
+        {% set result_class = 'Benigno' if 'BENIGNO' in prediction_text else 'Maligno' %}
+        <div class="prediction-result {{ result_class }}">
+            {{ prediction_text }}
+        </div>
+        {% endif %}
+    </div>
+
+    <script>
+        // Novo Caso Maligno (Baseado no ID: 842517 do dataset Wisconsin)
+        const malignantData = {
+            "radius_mean": 20.57, "texture_mean": 17.77, "perimeter_mean": 132.9, "area_mean": 1326, 
+            "smoothness_mean": 0.08474, "compactness_mean": 0.07864, "concavity_mean": 0.0869, "concave points_mean": 0.07017, 
+            "symmetry_mean": 0.1812, "fractal_dimension_mean": 0.05667,
+            "radius_se": 0.5435, "texture_se": 0.7339, "perimeter_se": 3.398, "area_se": 74.08, 
+            "smoothness_se": 0.005225, "compactness_se": 0.01308, "concavity_se": 0.0186, "concave points_se": 0.0134, 
+            "symmetry_se": 0.01389, "fractal_dimension_se": 0.003532,
+            "radius_worst": 24.99, "texture_worst": 23.41, "perimeter_worst": 158.8, "area_worst": 1956, 
+            "smoothness_worst": 0.1238, "compactness_worst": 0.1866, "concavity_worst": 0.2416, "concave points_worst": 0.186, 
+            "symmetry_worst": 0.275, "fractal_dimension_worst": 0.08902
+        };
+
+        // Caso Benigno (Valores Típicos/1º Quartil)
+        const benignData = {
+            "radius_mean": 11.7, "texture_mean": 16.17, "perimeter_mean": 75.17, "area_mean": 420.3, 
+            "smoothness_mean": 0.08637, "compactness_mean": 0.06492, "concavity_mean": 0.02956, "concave points_mean": 0.02031, 
+            "symmetry_mean": 0.1619, "fractal_dimension_mean": 0.0577,
+            "radius_se": 0.2324, "texture_se": 0.8339, "perimeter_se": 1.606, "area_se": 17.85, 
+            "smoothness_se": 0.006, "compactness_se": 0.013, "concavity_se": 0.01, "concave points_se": 0.007, 
+            "symmetry_se": 0.015, "fractal_dimension_se": 0.003,
+            "radius_worst": 13.01, "texture_worst": 21.08, "perimeter_worst": 84.11, "area_worst": 515.3, 
+            "smoothness_worst": 0.1166, "compactness_worst": 0.1472, "concavity_worst": 0.1145, "concave points_worst": 0.06493, 
+            "symmetry_worst": 0.2504, "fractal_dimension_worst": 0.07146
+        };
+
+        function fillData(data) {
+            for (const [key, value] of Object.entries(data)) {
+                // Procura o campo de input pelo ID (que corresponde ao nome da coluna)
+                const input = document.getElementById(key);
+                if (input) {
+                    input.value = value;
+                }
+            }
+        }
+
+        function fillMalignant() {
+            fillData(malignantData);
+        }
+
+        function fillBenign() {
+            fillData(benignData);
+        }
+    </script>
+</body>
+</html>
